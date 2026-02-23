@@ -1,18 +1,29 @@
-# Python
+# Byte-compiled / optimized / DLL files
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
 
 # Poetry
 .poetry/
 
-# Coverage
+# Virtual environments
+.venv/
+env/
+venv/
+
+# Coverage reports
 .coverage
 htmlcov/
+.pytest_cache/
 
-# PyCharm
+# IDE
 .idea/
+.vscode/
 
-# Virtualenv
-.venv/
+# macOS
+.DS_Store
