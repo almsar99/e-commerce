@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Poetry
+.poetry/
+
+# Coverage
+.coverage
+htmlcov/
+
+# PyCharm
+.idea/
+
+# Virtualenv
+.venv/
