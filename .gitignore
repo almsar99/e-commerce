@@ -18,7 +18,6 @@ venv/
 
 # Coverage reports
 .coverage
-htmlcov/
 .pytest_cache/
 
 # IDE
