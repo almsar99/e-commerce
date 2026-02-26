@@ -16,8 +16,31 @@ class Product:
     ) -> None:
         self.name = name
         self.description = description
-        self.price = price
+        self.__price = price
         self.quantity = quantity
+
+    @property
+    def price(self) -> float:
+        """Геттер цены."""
+        return self.__price
+
+    @price.setter
+    def price(self, new_price: float) -> None:
+        """Сеттер цены с проверкой."""
+        if new_price > 0:
+            self.__price = new_price
+        else:
+            print("Цена не должна быть нулевая или отрицательная")
+
+    @classmethod
+    def new_product(cls, product_data: dict) -> "Product":
+        """Создание продукта из словаря."""
+        return cls(
+            name=product_data["name"],
+            description=product_data["description"],
+            price=product_data["price"],
+            quantity=product_data["quantity"],
+        )
 
 
 class Category:
@@ -34,10 +57,27 @@ class Category:
     ) -> None:
         self.name = name
         self.description = description
-        self.products = products
+        self.__products = products
 
         Category.category_count += 1
         Category.product_count += len(products)
+
+    def add_product(self, product: Product) -> None:
+        """Добавление продукта в категорию."""
+        self.__products.append(product)
+        Category.product_count += 1
+
+    @property
+    def products(self) -> str:
+        """Геттер списка продуктов в формате строки."""
+        result = ""
+        for product in self.__products:
+            result += (
+                f"{product.name}, "
+                f"{product.price} руб. "
+                f"Остаток: {product.quantity} шт.\n"
+            )
+        return result
 
 
 def load_categories_from_json(file_path: str) -> list[Category]:
@@ -86,10 +126,7 @@ def demo() -> None:
         print(f"\nКатегория: {category.name}")
         print(f"Описание: {category.description}")
         print("Товары:")
-        for product in category.products:
-            print(
-                f" - {product.name} " f"({product.price} руб., {product.quantity} шт.)"
-            )
+        print(category.products)
 
 
 if __name__ == "__main__":  # pragma: no cover
