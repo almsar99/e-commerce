@@ -21,12 +21,10 @@ class Product:
 
     @property
     def price(self) -> float:
-        """Геттер цены."""
         return self.__price
 
     @price.setter
     def price(self, new_price: float) -> None:
-        """Сеттер цены с проверкой."""
         if new_price > 0:
             self.__price = new_price
         else:
@@ -34,13 +32,20 @@ class Product:
 
     @classmethod
     def new_product(cls, product_data: dict) -> "Product":
-        """Создание продукта из словаря."""
         return cls(
             name=product_data["name"],
             description=product_data["description"],
             price=product_data["price"],
             quantity=product_data["quantity"],
         )
+
+    def __str__(self) -> str:
+        return f"{self.name}, {self.price} руб. Остаток: {self.quantity} шт."
+
+    def __add__(self, other: "Product") -> float:
+        if not isinstance(other, Product):
+            return NotImplemented
+        return self.price * self.quantity + other.price * other.quantity
 
 
 class Category:
@@ -63,25 +68,22 @@ class Category:
         Category.product_count += len(products)
 
     def add_product(self, product: Product) -> None:
-        """Добавление продукта в категорию."""
         self.__products.append(product)
         Category.product_count += 1
 
     @property
     def products(self) -> str:
-        """Геттер списка продуктов в формате строки."""
-        result = ""
-        for product in self.__products:
-            result += (
-                f"{product.name}, "
-                f"{product.price} руб. "
-                f"Остаток: {product.quantity} шт.\n"
-            )
-        return result
+        return "".join(str(product) + "\n" for product in self.__products)
+
+    def __str__(self) -> str:
+        total_quantity = sum(product.quantity for product in self.__products)
+        return f"{self.name}, количество продуктов: {total_quantity} шт."
+
+    def __iter__(self):
+        return iter(self.__products)
 
 
 def load_categories_from_json(file_path: str) -> list[Category]:
-    """Загружает категории и товары из JSON-файла."""
     path = Path(file_path)
 
     with path.open("r", encoding="utf-8") as file:
@@ -90,16 +92,15 @@ def load_categories_from_json(file_path: str) -> list[Category]:
     categories: list[Category] = []
 
     for category_data in data:
-        products: list[Product] = []
-
-        for product_data in category_data["products"]:
-            product = Product(
-                name=product_data["name"],
-                description=product_data["description"],
-                price=product_data["price"],
-                quantity=product_data["quantity"],
+        products = [
+            Product(
+                name=p["name"],
+                description=p["description"],
+                price=p["price"],
+                quantity=p["quantity"],
             )
-            products.append(product)
+            for p in category_data["products"]
+        ]
 
         category = Category(
             name=category_data["name"],
@@ -113,7 +114,6 @@ def load_categories_from_json(file_path: str) -> list[Category]:
 
 
 def demo() -> None:
-    """Демонстрация загрузки данных из products.json."""
     Category.category_count = 0
     Category.product_count = 0
 
@@ -123,9 +123,7 @@ def demo() -> None:
     print(f"Количество товаров: {Category.product_count}")
 
     for category in categories:
-        print(f"\nКатегория: {category.name}")
-        print(f"Описание: {category.description}")
-        print("Товары:")
+        print(category)
         print(category.products)
 
 
