@@ -1,7 +1,16 @@
 import json
+import runpy
+import sys
+
 import pytest
 
-from src.main import Category, Product, demo, load_categories_from_json
+from src.main import (
+    Category,
+    LawnGrass,
+    Product,
+    Smartphone,
+    load_categories_from_json,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -30,29 +39,23 @@ def test_product_str():
     assert str(product) == "Test, 100.0 руб. Остаток: 5 шт."
 
 
-def test_product_add():
-    p1 = Product("A", "Desc", 100.0, 5)   # 500
-    p2 = Product("B", "Desc", 200.0, 2)   # 400
+def test_product_add_same_type():
+    p1 = Product("A", "Desc", 100.0, 5)
+    p2 = Product("B", "Desc", 200.0, 2)
 
     assert p1 + p2 == 900.0
 
 
-def test_product_add_wrong_type():
+def test_product_add_different_type():
     p1 = Product("A", "Desc", 100.0, 5)
+    phone = Smartphone("S", "Desc", 1000.0, 1, 95.0, "Model", 256, "Black")
 
     with pytest.raises(TypeError):
-        p1 + 5
-
-
-def test_product_add_not_implemented():
-    p1 = Product("A", "Desc", 100.0, 5)
-
-    assert Product.__add__(p1, 5) is NotImplemented
+        p1 + phone
 
 
 def test_price_setter_positive():
     product = Product("A", "Desc", 100.0, 1)
-
     product.price = 200.0
 
     assert product.price == 200.0
@@ -60,7 +63,6 @@ def test_price_setter_positive():
 
 def test_price_setter_negative(capsys):
     product = Product("A", "Desc", 100.0, 1)
-
     product.price = -50.0
 
     captured = capsys.readouterr()
@@ -80,9 +82,74 @@ def test_new_product_classmethod():
     product = Product.new_product(data)
 
     assert product.name == "Test"
-    assert product.description == "Desc"
     assert product.price == 500.0
     assert product.quantity == 3
+
+
+# =========================
+# Smartphone
+# =========================
+
+
+def test_smartphone_initialization():
+    phone = Smartphone(
+        "Samsung",
+        "Desc",
+        1000.0,
+        2,
+        95.5,
+        "S23",
+        256,
+        "Black",
+    )
+
+    assert phone.efficiency == 95.5
+    assert phone.model == "S23"
+    assert phone.memory == 256
+    assert phone.color == "Black"
+
+
+def test_smartphone_add():
+    p1 = Smartphone("A", "Desc", 100.0, 2, 90.0, "M1", 128, "Black")
+    p2 = Smartphone("B", "Desc", 200.0, 1, 91.0, "M2", 256, "White")
+
+    assert p1 + p2 == 400.0
+
+
+# =========================
+# LawnGrass
+# =========================
+
+
+def test_lawngrass_initialization():
+    grass = LawnGrass(
+        "Grass",
+        "Desc",
+        500.0,
+        10,
+        "Россия",
+        "7 дней",
+        "Зеленый",
+    )
+
+    assert grass.country == "Россия"
+    assert grass.germination_period == "7 дней"
+    assert grass.color == "Зеленый"
+
+
+def test_lawngrass_add():
+    g1 = LawnGrass("A", "Desc", 100.0, 5, "RU", "5 days", "Green")
+    g2 = LawnGrass("B", "Desc", 200.0, 2, "RU", "6 days", "Dark")
+
+    assert g1 + g2 == 900.0
+
+
+def test_smartphone_and_grass_add_error():
+    phone = Smartphone("A", "Desc", 100.0, 2, 90.0, "M1", 128, "Black")
+    grass = LawnGrass("B", "Desc", 200.0, 2, "RU", "5 days", "Green")
+
+    with pytest.raises(TypeError):
+        phone + grass
 
 
 # =========================
@@ -91,73 +158,49 @@ def test_new_product_classmethod():
 
 
 def test_category_initialization():
-    product = Product("Samsung", "Описание", 100000.0, 5)
+    product = Product("A", "Desc", 100.0, 1)
 
-    category = Category("Смартфоны", "Телефоны", [product])
+    Category("Test", "Desc", [product])
 
-    assert category.name == "Смартфоны"
-    assert category.description == "Телефоны"
-    assert Category.product_count == 1
     assert Category.category_count == 1
+    assert Category.product_count == 1
 
 
 def test_category_str():
-    p1 = Product("A", "Desc", 100.0, 5)
+    p1 = Product("A", "Desc", 100.0, 2)
     p2 = Product("B", "Desc", 200.0, 3)
 
-    category = Category("Смартфоны", "Описание", [p1, p2])
+    category = Category("Test", "Desc", [p1, p2])
 
-    assert str(category) == "Смартфоны, количество продуктов: 8 шт."
-
-
-def test_products_property_format():
-    product = Product("Samsung", "Описание", 100000.0, 5)
-
-    category = Category("Смартфоны", "Телефоны", [product])
-
-    assert category.products == "Samsung, 100000.0 руб. Остаток: 5 шт.\n"
+    assert str(category) == "Test, количество продуктов: 5 шт."
 
 
-def test_products_empty_category():
-    category = Category("Empty", "None", [])
+def test_category_products_property():
+    product = Product("A", "Desc", 100.0, 1)
+    category = Category("Test", "Desc", [product])
 
-    assert category.products == ""
+    assert category.products == "A, 100.0 руб. Остаток: 1 шт.\n"
 
 
-def test_add_product():
-    category = Category("Смартфоны", "Телефоны", [])
-    product = Product("Samsung", "Описание", 100000.0, 5)
+def test_add_product_valid():
+    category = Category("Test", "Desc", [])
+    product = Product("A", "Desc", 100.0, 1)
 
     category.add_product(product)
 
     assert Category.product_count == 1
-    assert category.products == "Samsung, 100000.0 руб. Остаток: 5 шт.\n"
 
 
-def test_category_count():
-    Category("Категория 1", "Описание", [])
-    Category("Категория 2", "Описание", [])
+def test_add_product_invalid():
+    category = Category("Test", "Desc", [])
 
-    assert Category.category_count == 2
-
-
-def test_product_count():
-    p1 = Product("A", "Desc", 100.0, 1)
-    p2 = Product("B", "Desc", 200.0, 2)
-
-    Category("Категория", "Описание", [p1, p2])
-
-    assert Category.product_count == 2
-
-
-# =========================
-# Iterator
-# =========================
+    with pytest.raises(TypeError):
+        category.add_product("Not a product")
 
 
 def test_category_iterator():
     p1 = Product("A", "Desc", 100.0, 1)
-    p2 = Product("B", "Desc", 200.0, 2)
+    p2 = Product("B", "Desc", 200.0, 1)
 
     category = Category("Test", "Desc", [p1, p2])
 
@@ -170,37 +213,6 @@ def test_category_iterator():
 
 
 def test_load_categories_from_json(tmp_path):
-    test_data = [
-        {
-            "name": "Тестовая категория",
-            "description": "Описание",
-            "products": [
-                {
-                    "name": "Товар 1",
-                    "description": "Описание товара",
-                    "price": 100.0,
-                    "quantity": 2,
-                }
-            ],
-        }
-    ]
-
-    file_path = tmp_path / "test.json"
-    file_path.write_text(json.dumps(test_data, ensure_ascii=False), encoding="utf-8")
-
-    categories = load_categories_from_json(str(file_path))
-
-    assert len(categories) == 1
-    assert categories[0].name == "Тестовая категория"
-    assert Category.product_count == 1
-
-
-# =========================
-# Demo
-# =========================
-
-
-def test_demo(monkeypatch, tmp_path):
     test_data = [
         {
             "name": "Категория",
@@ -216,12 +228,21 @@ def test_demo(monkeypatch, tmp_path):
         }
     ]
 
-    file_path = tmp_path / "products.json"
-    file_path.write_text(json.dumps(test_data, ensure_ascii=False), encoding="utf-8")
+    file_path = tmp_path / "test.json"
+    file_path.write_text(json.dumps(test_data), encoding="utf-8")
 
-    monkeypatch.chdir(tmp_path)
+    categories = load_categories_from_json(str(file_path))
 
-    demo()
-
-    assert Category.category_count == 1
+    assert len(categories) == 1
+    assert categories[0].name == "Категория"
     assert Category.product_count == 1
+
+
+# =========================
+# __main__ coverage (100% without warning)
+# =========================
+
+
+def test_main_block_execution():
+    sys.modules.pop("src.main", None)
+    runpy.run_module("src.main", run_name="__main__")

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 
 class Product:
-    """Класс для представления продукта."""
+    """Базовый класс для представления продукта."""
 
     def __init__(
         self,
@@ -31,7 +33,7 @@ class Product:
             print("Цена не должна быть нулевая или отрицательная")
 
     @classmethod
-    def new_product(cls, product_data: dict) -> "Product":
+    def new_product(cls, product_data: dict[str, Any]) -> Product:
         return cls(
             name=product_data["name"],
             description=product_data["description"],
@@ -42,14 +44,54 @@ class Product:
     def __str__(self) -> str:
         return f"{self.name}, {self.price} руб. Остаток: {self.quantity} шт."
 
-    def __add__(self, other: "Product") -> float:
-        if not isinstance(other, Product):
-            return NotImplemented
+    def __add__(self, other: Product) -> float:
+        if type(self) is not type(other):
+            raise TypeError("Нельзя складывать товары разных типов")
         return self.price * self.quantity + other.price * other.quantity
 
 
+class Smartphone(Product):
+    """Класс смартфона."""
+
+    def __init__(
+        self,
+        name: str,
+        description: str,
+        price: float,
+        quantity: int,
+        efficiency: float,
+        model: str,
+        memory: int,
+        color: str,
+    ) -> None:
+        super().__init__(name, description, price, quantity)
+        self.efficiency = efficiency
+        self.model = model
+        self.memory = memory
+        self.color = color
+
+
+class LawnGrass(Product):
+    """Класс газонной травы."""
+
+    def __init__(
+        self,
+        name: str,
+        description: str,
+        price: float,
+        quantity: int,
+        country: str,
+        germination_period: str,
+        color: str,
+    ) -> None:
+        super().__init__(name, description, price, quantity)
+        self.country = country
+        self.germination_period = germination_period
+        self.color = color
+
+
 class Category:
-    """Класс для представления категории товаров."""
+    """Класс категории товаров."""
 
     category_count: int = 0
     product_count: int = 0
@@ -62,12 +104,15 @@ class Category:
     ) -> None:
         self.name = name
         self.description = description
-        self.__products = products
+        self.__products: list[Product] = products
 
         Category.category_count += 1
         Category.product_count += len(products)
 
     def add_product(self, product: Product) -> None:
+        if not isinstance(product, Product):
+            raise TypeError("Можно добавлять только продукты или их наследников")
+
         self.__products.append(product)
         Category.product_count += 1
 
@@ -79,7 +124,7 @@ class Category:
         total_quantity = sum(product.quantity for product in self.__products)
         return f"{self.name}, количество продуктов: {total_quantity} шт."
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Product]:
         return iter(self.__products)
 
 
@@ -102,30 +147,64 @@ def load_categories_from_json(file_path: str) -> list[Category]:
             for p in category_data["products"]
         ]
 
-        category = Category(
-            name=category_data["name"],
-            description=category_data["description"],
-            products=products,
+        categories.append(
+            Category(
+                name=category_data["name"],
+                description=category_data["description"],
+                products=products,
+            )
         )
-
-        categories.append(category)
 
     return categories
 
 
-def demo() -> None:
-    Category.category_count = 0
-    Category.product_count = 0
+if __name__ == "__main__":
+    smartphone1 = Smartphone(
+        "Samsung Galaxy S23 Ultra",
+        "256GB",
+        180000.0,
+        5,
+        95.5,
+        "S23 Ultra",
+        256,
+        "Серый",
+    )
 
-    categories = load_categories_from_json("products.json")
+    smartphone2 = Smartphone(
+        "Iphone 15",
+        "512GB",
+        210000.0,
+        8,
+        98.2,
+        "15",
+        512,
+        "Gray",
+    )
 
-    print(f"Количество категорий: {Category.category_count}")
-    print(f"Количество товаров: {Category.product_count}")
+    grass1 = LawnGrass(
+        "Газонная трава",
+        "Элитная трава",
+        500.0,
+        20,
+        "Россия",
+        "7 дней",
+        "Зеленый",
+    )
 
-    for category in categories:
-        print(category)
-        print(category.products)
+    grass2 = LawnGrass(
+        "Газонная трава 2",
+        "Выносливая трава",
+        450.0,
+        15,
+        "США",
+        "5 дней",
+        "Темно-зеленый",
+    )
 
+    print(smartphone1 + smartphone2)
+    print(grass1 + grass2)
 
-if __name__ == "__main__":  # pragma: no cover
-    demo()
+    try:
+        print(smartphone1 + grass1)
+    except TypeError:
+        print("Возникла ошибка TypeError при попытке сложения")
