@@ -5,6 +5,7 @@ import sys
 import pytest
 
 from src.main import (
+    BaseProduct,
     Category,
     LawnGrass,
     Product,
@@ -17,6 +18,28 @@ from src.main import (
 def reset_category_counts():
     Category.category_count = 0
     Category.product_count = 0
+
+
+# =========================
+# BaseProduct
+# =========================
+
+
+def test_base_product_cannot_be_instantiated():
+    with pytest.raises(TypeError):
+        BaseProduct()  # type: ignore
+
+
+# =========================
+# CreationLoggerMixin
+# =========================
+
+
+def test_creation_logger_mixin(capsys):
+    Product("Test", "Desc", 100.0, 1)
+
+    captured = capsys.readouterr()
+    assert "Product" in captured.out
 
 
 # =========================
@@ -35,7 +58,6 @@ def test_product_initialization():
 
 def test_product_str():
     product = Product("Test", "Desc", 100.0, 5)
-
     assert str(product) == "Test, 100.0 руб. Остаток: 5 шт."
 
 
@@ -57,7 +79,6 @@ def test_product_add_different_type():
 def test_price_setter_positive():
     product = Product("A", "Desc", 100.0, 1)
     product.price = 200.0
-
     assert product.price == 200.0
 
 
@@ -159,7 +180,6 @@ def test_smartphone_and_grass_add_error():
 
 def test_category_initialization():
     product = Product("A", "Desc", 100.0, 1)
-
     Category("Test", "Desc", [product])
 
     assert Category.category_count == 1
@@ -239,7 +259,7 @@ def test_load_categories_from_json(tmp_path):
 
 
 # =========================
-# __main__ coverage (100% without warning)
+# __main__ coverage
 # =========================
 
 
