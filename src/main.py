@@ -1,13 +1,65 @@
 from __future__ import annotations
 
 import json
+from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
+# =========================
+# Base classes
+# =========================
 
-class Product:
-    """Базовый класс для представления продукта."""
+
+class BaseProduct(ABC):
+    """Абстрактный базовый класс продукта."""
+
+    @property
+    @abstractmethod
+    def price(self) -> float:  # pragma: no cover
+        raise NotImplementedError
+
+    @abstractmethod
+    def __str__(self) -> str:  # pragma: no cover
+        raise NotImplementedError
+
+    @abstractmethod
+    def __add__(self, other: object) -> float:  # pragma: no cover
+        raise NotImplementedError
+
+
+class BaseModel(ABC):
+    """Абстрактный базовый класс бизнес-сущности."""
+
+    def __init__(self, name: str, description: str) -> None:
+        self.name = name
+        self.description = description
+
+    @abstractmethod
+    def __str__(self) -> str:  # pragma: no cover
+        raise NotImplementedError
+
+
+# =========================
+# Mixin
+# =========================
+
+
+class CreationLoggerMixin:
+    """Миксин логирования создания объекта."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        print(f"{self.__class__.__name__}{args}")
+        super().__init__(*args, **kwargs)
+
+
+# =========================
+# Products
+# =========================
+
+
+class Product(CreationLoggerMixin, BaseProduct):
+    """Класс для представления продукта."""
 
     def __init__(
         self,
@@ -20,6 +72,7 @@ class Product:
         self.description = description
         self.__price = price
         self.quantity = quantity
+        super().__init__()
 
     @property
     def price(self) -> float:
@@ -44,9 +97,11 @@ class Product:
     def __str__(self) -> str:
         return f"{self.name}, {self.price} руб. Остаток: {self.quantity} шт."
 
-    def __add__(self, other: Product) -> float:
+    def __add__(self, other: object) -> float:
         if type(self) is not type(other):
             raise TypeError("Нельзя складывать товары разных типов")
+
+        assert isinstance(other, Product)
         return self.price * self.quantity + other.price * other.quantity
 
 
@@ -90,7 +145,12 @@ class LawnGrass(Product):
         self.color = color
 
 
-class Category:
+# =========================
+# Category & Order
+# =========================
+
+
+class Category(BaseModel):
     """Класс категории товаров."""
 
     category_count: int = 0
@@ -102,8 +162,7 @@ class Category:
         description: str,
         products: list[Product],
     ) -> None:
-        self.name = name
-        self.description = description
+        super().__init__(name, description)
         self.__products: list[Product] = products
 
         Category.category_count += 1
@@ -126,6 +185,28 @@ class Category:
 
     def __iter__(self) -> Iterator[Product]:
         return iter(self.__products)
+
+
+class Order(BaseModel):
+    """Класс заказа (может содержать только один товар)."""
+
+    def __init__(self, product: Product, quantity: int) -> None:
+        super().__init__(product.name, product.description)
+        self.product = product
+        self.quantity = quantity
+        self.total_price = product.price * quantity
+
+    def __str__(self) -> str:
+        return (
+            f"Заказ: {self.product.name}, "
+            f"Количество: {self.quantity}, "
+            f"Итого: {self.total_price} руб."
+        )
+
+
+# =========================
+# JSON Loader
+# =========================
 
 
 def load_categories_from_json(file_path: str) -> list[Category]:
@@ -158,53 +239,17 @@ def load_categories_from_json(file_path: str) -> list[Category]:
     return categories
 
 
+# =========================
+# Demo
+# =========================
+
+
 if __name__ == "__main__":
-    smartphone1 = Smartphone(
-        "Samsung Galaxy S23 Ultra",
-        "256GB",
-        180000.0,
-        5,
-        95.5,
-        "S23 Ultra",
-        256,
-        "Серый",
-    )
+    product1 = Product("Samsung Galaxy S23 Ultra", "256GB", 180000.0, 5)
+    product2 = Product("Iphone 15", "512GB", 210000.0, 8)
 
-    smartphone2 = Smartphone(
-        "Iphone 15",
-        "512GB",
-        210000.0,
-        8,
-        98.2,
-        "15",
-        512,
-        "Gray",
-    )
+    category = Category("Смартфоны", "Категория смартфонов", [product1, product2])
+    order = Order(product1, 2)
 
-    grass1 = LawnGrass(
-        "Газонная трава",
-        "Элитная трава",
-        500.0,
-        20,
-        "Россия",
-        "7 дней",
-        "Зеленый",
-    )
-
-    grass2 = LawnGrass(
-        "Газонная трава 2",
-        "Выносливая трава",
-        450.0,
-        15,
-        "США",
-        "5 дней",
-        "Темно-зеленый",
-    )
-
-    print(smartphone1 + smartphone2)
-    print(grass1 + grass2)
-
-    try:
-        print(smartphone1 + grass1)
-    except TypeError:
-        print("Возникла ошибка TypeError при попытке сложения")
+    print(category)
+    print(order)
