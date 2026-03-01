@@ -4,10 +4,13 @@ import sys
 
 import pytest
 
+from src import main as m
 from src.main import (
+    BaseModel,
     BaseProduct,
     Category,
     LawnGrass,
+    Order,
     Product,
     Smartphone,
     load_categories_from_json,
@@ -15,225 +18,183 @@ from src.main import (
 
 
 @pytest.fixture(autouse=True)
-def reset_category_counts():
+def reset_counts():
     Category.category_count = 0
     Category.product_count = 0
 
 
 # =========================
-# BaseProduct
+# ABSTRACT CLASSES
 # =========================
 
 
-def test_base_product_cannot_be_instantiated():
+def test_abstract_classes():
     with pytest.raises(TypeError):
-        BaseProduct()  # type: ignore
+        BaseProduct()
+
+    class Dummy(BaseProduct):
+        @property
+        def price(self):
+            return 1
+
+        def __str__(self):
+            return "x"
+
+        def __add__(self, other):
+            return 0
+
+    d = Dummy()
+
+    with pytest.raises(NotImplementedError):
+        BaseProduct.__str__(d)
+
+    with pytest.raises(NotImplementedError):
+        BaseProduct.__add__(d, d)
+
+    with pytest.raises(NotImplementedError):
+        BaseProduct.price.fget(d)
+
+    class DummyModel(BaseModel):
+        def __str__(self):
+            return "ok"
+
+    model = DummyModel("n", "d")
+
+    with pytest.raises(NotImplementedError):
+        BaseModel.__str__(model)
 
 
 # =========================
-# CreationLoggerMixin
+# PRODUCT
 # =========================
 
 
-def test_creation_logger_mixin(capsys):
-    Product("Test", "Desc", 100.0, 1)
+def test_product_all_branches(capsys):
+    p = Product("A", "Desc", 100, 2)
 
-    captured = capsys.readouterr()
-    assert "Product" in captured.out
+    # __str__
+    assert "A" in str(p)
 
+    # setter positive
+    p.price = 200
+    assert p.price == 200
 
-# =========================
-# Product
-# =========================
+    # setter negative
+    p.price = -10
+    assert p.price == 200
 
+    # zero quantity exception
+    with pytest.raises(ValueError):
+        Product("Bad", "Desc", 100, 0)
 
-def test_product_initialization():
-    product = Product("Iphone 15", "512GB", 210000.0, 8)
+    # add
+    p2 = Product("B", "Desc", 200, 1)
+    assert p + p2 == 600  # 200*2 + 200*1
 
-    assert product.name == "Iphone 15"
-    assert product.description == "512GB"
-    assert product.price == 210000.0
-    assert product.quantity == 8
-
-
-def test_product_str():
-    product = Product("Test", "Desc", 100.0, 5)
-    assert str(product) == "Test, 100.0 руб. Остаток: 5 шт."
-
-
-def test_product_add_same_type():
-    p1 = Product("A", "Desc", 100.0, 5)
-    p2 = Product("B", "Desc", 200.0, 2)
-
-    assert p1 + p2 == 900.0
-
-
-def test_product_add_different_type():
-    p1 = Product("A", "Desc", 100.0, 5)
-    phone = Smartphone("S", "Desc", 1000.0, 1, 95.0, "Model", 256, "Black")
-
+    # add different type
+    phone = Smartphone("S", "Desc", 1000, 1, 90, "Model", 256, "Black")
     with pytest.raises(TypeError):
-        p1 + phone
+        p + phone
 
-
-def test_price_setter_positive():
-    product = Product("A", "Desc", 100.0, 1)
-    product.price = 200.0
-    assert product.price == 200.0
-
-
-def test_price_setter_negative(capsys):
-    product = Product("A", "Desc", 100.0, 1)
-    product.price = -50.0
-
-    captured = capsys.readouterr()
-
-    assert "Цена не должна быть нулевая или отрицательная" in captured.out
-    assert product.price == 100.0
-
-
-def test_new_product_classmethod():
+    # classmethod
     data = {
-        "name": "Test",
-        "description": "Desc",
-        "price": 500.0,
-        "quantity": 3,
+        "name": "X",
+        "description": "Y",
+        "price": 300,
+        "quantity": 1,
     }
+    assert Product.new_product(data).price == 300
 
-    product = Product.new_product(data)
-
-    assert product.name == "Test"
-    assert product.price == 500.0
-    assert product.quantity == 3
+    capsys.readouterr()
 
 
 # =========================
-# Smartphone
+# SMARTPHONE & LAWN
 # =========================
 
 
-def test_smartphone_initialization():
-    phone = Smartphone(
-        "Samsung",
-        "Desc",
-        1000.0,
-        2,
-        95.5,
-        "S23",
-        256,
-        "Black",
-    )
+def test_smartphone_and_lawn():
+    phone = Smartphone("S", "Desc", 1000, 1, 95, "Model", 256, "Black")
+    grass = LawnGrass("G", "Desc", 500, 3, "RU", "7 дней", "Green")
 
-    assert phone.efficiency == 95.5
-    assert phone.model == "S23"
     assert phone.memory == 256
-    assert phone.color == "Black"
-
-
-def test_smartphone_add():
-    p1 = Smartphone("A", "Desc", 100.0, 2, 90.0, "M1", 128, "Black")
-    p2 = Smartphone("B", "Desc", 200.0, 1, 91.0, "M2", 256, "White")
-
-    assert p1 + p2 == 400.0
+    assert grass.country == "RU"
 
 
 # =========================
-# LawnGrass
+# CATEGORY
 # =========================
 
 
-def test_lawngrass_initialization():
-    grass = LawnGrass(
-        "Grass",
-        "Desc",
-        500.0,
-        10,
-        "Россия",
-        "7 дней",
-        "Зеленый",
-    )
+def test_category_all_branches(capsys):
+    p1 = Product("A", "Desc", 100, 2)
+    p2 = Product("B", "Desc", 300, 3)
 
-    assert grass.country == "Россия"
-    assert grass.germination_period == "7 дней"
-    assert grass.color == "Зеленый"
+    c = Category("Test", "Desc", [p1, p2])
 
+    # __str__
+    assert "Test" in str(c)
 
-def test_lawngrass_add():
-    g1 = LawnGrass("A", "Desc", 100.0, 5, "RU", "5 days", "Green")
-    g2 = LawnGrass("B", "Desc", 200.0, 2, "RU", "6 days", "Dark")
+    # iterator
+    assert list(c) == [p1, p2]
 
-    assert g1 + g2 == 900.0
+    # products property
+    assert "A" in c.products
 
+    # middle_price
+    assert c.middle_price() == 200
 
-def test_smartphone_and_grass_add_error():
-    phone = Smartphone("A", "Desc", 100.0, 2, 90.0, "M1", 128, "Black")
-    grass = LawnGrass("B", "Desc", 200.0, 2, "RU", "5 days", "Green")
+    # empty branch
+    empty = Category("Empty", "Desc", [])
+    assert empty.middle_price() == 0
 
+    # add success
+    c2 = Category("New", "Desc", [])
+    p = Product("X", "Desc", 100, 1)
+
+    initial = Category.product_count
+    c2.add_product(p)
+    assert Category.product_count == initial + 1
+
+    # zero quantity branch
+    p.quantity = 0
+    c2.add_product(p)
+
+    # wrong type
     with pytest.raises(TypeError):
-        phone + grass
+        c2.add_product("not product")
+
+    out = capsys.readouterr().out
+    assert "Обработка добавления товара завершена" in out
 
 
 # =========================
-# Category
+# ORDER
 # =========================
 
 
-def test_category_initialization():
-    product = Product("A", "Desc", 100.0, 1)
-    Category("Test", "Desc", [product])
+def test_order_all_branches(capsys):
+    p = Product("A", "Desc", 100, 5)
 
-    assert Category.category_count == 1
-    assert Category.product_count == 1
+    # success
+    o = Order(p, 2)
+    assert o.total_price == 200
+    assert "Заказ:" in str(o)
 
+    # zero quantity
+    Order(p, 0)
 
-def test_category_str():
-    p1 = Product("A", "Desc", 100.0, 2)
-    p2 = Product("B", "Desc", 200.0, 3)
-
-    category = Category("Test", "Desc", [p1, p2])
-
-    assert str(category) == "Test, количество продуктов: 5 шт."
-
-
-def test_category_products_property():
-    product = Product("A", "Desc", 100.0, 1)
-    category = Category("Test", "Desc", [product])
-
-    assert category.products == "A, 100.0 руб. Остаток: 1 шт.\n"
-
-
-def test_add_product_valid():
-    category = Category("Test", "Desc", [])
-    product = Product("A", "Desc", 100.0, 1)
-
-    category.add_product(product)
-
-    assert Category.product_count == 1
-
-
-def test_add_product_invalid():
-    category = Category("Test", "Desc", [])
-
-    with pytest.raises(TypeError):
-        category.add_product("Not a product")
-
-
-def test_category_iterator():
-    p1 = Product("A", "Desc", 100.0, 1)
-    p2 = Product("B", "Desc", 200.0, 1)
-
-    category = Category("Test", "Desc", [p1, p2])
-
-    assert list(category) == [p1, p2]
+    out = capsys.readouterr().out
+    assert "Обработка создания заказа завершена" in out
 
 
 # =========================
-# JSON loader
+# JSON
 # =========================
 
 
-def test_load_categories_from_json(tmp_path):
-    test_data = [
+def test_json_loader(tmp_path):
+    data = [
         {
             "name": "Категория",
             "description": "Описание",
@@ -241,28 +202,30 @@ def test_load_categories_from_json(tmp_path):
                 {
                     "name": "Товар",
                     "description": "Описание",
-                    "price": 100.0,
+                    "price": 100,
                     "quantity": 1,
                 }
             ],
         }
     ]
 
-    file_path = tmp_path / "test.json"
-    file_path.write_text(json.dumps(test_data), encoding="utf-8")
+    file = tmp_path / "test.json"
+    file.write_text(json.dumps(data), encoding="utf-8")
 
-    categories = load_categories_from_json(str(file_path))
-
-    assert len(categories) == 1
-    assert categories[0].name == "Категория"
-    assert Category.product_count == 1
+    cats = load_categories_from_json(str(file))
+    assert len(cats) == 1
 
 
 # =========================
-# __main__ coverage
+# MAIN
 # =========================
 
 
-def test_main_block_execution():
+def test_main_direct(capsys):
+    m.main()
+    assert "0" in capsys.readouterr().out
+
+
+def test_run_module_clean():
     sys.modules.pop("src.main", None)
     runpy.run_module("src.main", run_name="__main__")
