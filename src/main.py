@@ -6,68 +6,49 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
-# =========================
-# Base classes
-# =========================
+
+class ZeroQuantityError(Exception):
+    """Исключение для обработки товара с нулевым количеством."""
 
 
 class BaseProduct(ABC):
-    """Абстрактный базовый класс продукта."""
-
     @property
     @abstractmethod
-    def price(self) -> float:  # pragma: no cover
+    def price(self) -> float:
         raise NotImplementedError
 
     @abstractmethod
-    def __str__(self) -> str:  # pragma: no cover
+    def __str__(self) -> str:
         raise NotImplementedError
 
     @abstractmethod
-    def __add__(self, other: object) -> float:  # pragma: no cover
+    def __add__(self, other: object) -> float:
         raise NotImplementedError
 
 
 class BaseModel(ABC):
-    """Абстрактный базовый класс бизнес-сущности."""
-
     def __init__(self, name: str, description: str) -> None:
         self.name = name
         self.description = description
 
     @abstractmethod
-    def __str__(self) -> str:  # pragma: no cover
+    def __str__(self) -> str:
         raise NotImplementedError
 
 
-# =========================
-# Mixin
-# =========================
-
-
 class CreationLoggerMixin:
-    """Миксин логирования создания объекта."""
-
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         print(f"{self.__class__.__name__}{args}")
         super().__init__(*args, **kwargs)
 
 
-# =========================
-# Products
-# =========================
-
-
 class Product(CreationLoggerMixin, BaseProduct):
-    """Класс для представления продукта."""
-
     def __init__(
-        self,
-        name: str,
-        description: str,
-        price: float,
-        quantity: int,
+        self, name: str, description: str, price: float, quantity: int
     ) -> None:
+        if quantity == 0:
+            raise ValueError("Товар с нулевым количеством не может быть добавлен")
+
         self.name = name
         self.description = description
         self.__price = price
@@ -106,8 +87,6 @@ class Product(CreationLoggerMixin, BaseProduct):
 
 
 class Smartphone(Product):
-    """Класс смартфона."""
-
     def __init__(
         self,
         name: str,
@@ -127,8 +106,6 @@ class Smartphone(Product):
 
 
 class LawnGrass(Product):
-    """Класс газонной травы."""
-
     def __init__(
         self,
         name: str,
@@ -145,25 +122,13 @@ class LawnGrass(Product):
         self.color = color
 
 
-# =========================
-# Category & Order
-# =========================
-
-
 class Category(BaseModel):
-    """Класс категории товаров."""
-
     category_count: int = 0
     product_count: int = 0
 
-    def __init__(
-        self,
-        name: str,
-        description: str,
-        products: list[Product],
-    ) -> None:
+    def __init__(self, name: str, description: str, products: list[Product]) -> None:
         super().__init__(name, description)
-        self.__products: list[Product] = products
+        self.__products = products
 
         Category.category_count += 1
         Category.product_count += len(products)
@@ -172,8 +137,26 @@ class Category(BaseModel):
         if not isinstance(product, Product):
             raise TypeError("Можно добавлять только продукты или их наследников")
 
-        self.__products.append(product)
-        Category.product_count += 1
+        try:
+            if product.quantity == 0:
+                raise ZeroQuantityError("Нельзя добавить товар с нулевым количеством")
+
+            self.__products.append(product)
+            Category.product_count += 1
+
+        except ZeroQuantityError as e:
+            print(e)
+        else:
+            print("Товар добавлен")
+        finally:
+            print("Обработка добавления товара завершена")
+
+    def middle_price(self) -> float:
+        try:
+            total = sum(product.price for product in self.__products)
+            return total / len(self.__products)
+        except ZeroDivisionError:
+            return 0
 
     @property
     def products(self) -> str:
@@ -188,13 +171,27 @@ class Category(BaseModel):
 
 
 class Order(BaseModel):
-    """Класс заказа (может содержать только один товар)."""
-
     def __init__(self, product: Product, quantity: int) -> None:
         super().__init__(product.name, product.description)
-        self.product = product
-        self.quantity = quantity
-        self.total_price = product.price * quantity
+
+        try:
+            if quantity == 0:
+                raise ZeroQuantityError(
+                    "Нельзя создать заказ с нулевым количеством товара"
+                )
+
+            self.product = product
+            self.quantity = quantity
+            self.total_price = product.price * quantity
+
+        except ZeroQuantityError as e:
+            print(e)
+            self.quantity = quantity
+            self.total_price = 0
+        else:
+            print("Заказ успешно создан")
+        finally:
+            print("Обработка создания заказа завершена")
 
     def __str__(self) -> str:
         return (
@@ -202,11 +199,6 @@ class Order(BaseModel):
             f"Количество: {self.quantity}, "
             f"Итого: {self.total_price} руб."
         )
-
-
-# =========================
-# JSON Loader
-# =========================
 
 
 def load_categories_from_json(file_path: str) -> list[Category]:
@@ -239,17 +231,27 @@ def load_categories_from_json(file_path: str) -> list[Category]:
     return categories
 
 
-# =========================
-# Demo
-# =========================
+def main() -> None:
+    try:
+        Product("Бракованный товар", "Неверное количество", 1000.0, 0)
+    except ValueError:
+        print(
+            "Возникла ошибка ValueError прерывающая работу программы "
+            "при попытке добавить продукт с нулевым количеством"
+        )
 
-
-if __name__ == "__main__":
     product1 = Product("Samsung Galaxy S23 Ultra", "256GB", 180000.0, 5)
     product2 = Product("Iphone 15", "512GB", 210000.0, 8)
+    product3 = Product("Xiaomi Redmi Note 11", "1024GB", 31000.0, 14)
 
-    category = Category("Смартфоны", "Категория смартфонов", [product1, product2])
-    order = Order(product1, 2)
+    category1 = Category(
+        "Смартфоны", "Категория смартфонов", [product1, product2, product3]
+    )
+    print(category1.middle_price())
 
-    print(category)
-    print(order)
+    category_empty = Category("Пустая категория", "Категория без продуктов", [])
+    print(category_empty.middle_price())
+
+
+if __name__ == "__main__":  # pragma: no cover
+    main()
